@@ -46,6 +46,23 @@
 (define (value-of-program prog)
   (empty-store)
   ; you must collect all the classes declared and building its respectively environment
+  (get-declarations (ast:prog-decls prog))
   ; execute the prog expression in the correct environment
-  (value-of prog init-env))
+  (value-of (ast:prog-exp prog) init-env))
 
+; Recebe uma lista de declarações (classes)
+(define (get-declarations decl-list)
+  (if (null? decl-list)
+      ; then
+      null
+      ; else
+      (begin ; esse begin é pra fazer grupos de procedimentos
+       (match (car decl-list)
+          ; usa o match pra separar os argumentos e poder usar eles na função de criar a classe
+          [(ast:decl name super fields methods) (display name) (display super) (display fields) ]
+        )
+        ; recursão com a cauda da lista de declarações
+        (get-declarations (cdr decl-list))
+      )
+  )        
+)

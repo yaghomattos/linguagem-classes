@@ -19,7 +19,7 @@
 (set! decl-list (list (ast:decl (ast:var "teste") (ast:var "object") (list (ast:var "y")) (list (ast:method (ast:var "initialize") (list (ast:var "v")) (ast:begin (list (ast:assign (ast:var "x") (ast:var "v"))))) (ast:method (ast:var "gety") '() (ast:var "y"))))) )
 
 
-; ######### Exercicio 4 #########
+; ################## Exercicio 4 ##################
 
 (struct object (classname fields))
 ; criar o objeto a partir do descritor da classe, recebe uma lista de campos da classe (teste e x,y)
@@ -42,10 +42,23 @@
    (class superclass-name method-env)
 )
 
+; #############################################
 
 (define (teste-ex4 decl-list)
   ; exibe a cabeça da lista
  (display (car decl-list))
 )
 
-(teste-ex4 decl-list)
+(define (get-declarations decl-list)
+  (if (null? decl-list)
+      empty
+      (match (car decl-list)
+        [(ast:decl name super fields methods) (display name) (display super) (display fields) ]
+  ))  
+)
+
+;(define (get-class-from-delc decl)
+;  (display (ast:decl name super fields methods))
+;)
+
+(get-declarations decl-list)
