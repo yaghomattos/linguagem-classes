@@ -1,0 +1,44 @@
+#lang racket
+
+(require linguagem-classes/classes/ast)
+
+;class teste {
+;       field x
+;       field y
+;       a(z){
+;         x - z
+;       }
+;  }
+
+; Exercicio 4
+(struct object (classname fields))
+; criar o objeto a partir do descritor da classe, recebe uma lista de campos da classe (teste e x,y)
+
+(define (create-object classname fields)
+  (object classname fields)
+)
+
+(struct method (vars body super-names field-names))
+; todos os campos vem da assinatura do metodo e da classe
+
+(define (create-method vars body super-names field-names)
+  (method vars body super-names field-names)
+)
+
+(struct class (super-names method-env))
+; ambiente de metodos a -> (method (z) (- x z) object (x y)), b -> ...
+
+(define (create-class superclass-name method-env)
+   (class superclass-name method-env)
+)
+
+(define (z) z)
+
+(set! z (list (decl (var "teste") (var "object") (list (var "y")) (list (method (var "initialize") (list (var "v")) (begin (list (assign (var "x") (var "v"))))) (method (var "gety") '() (var "y"))))) )
+
+
+(define (teste-ex4 decl-list)
+ (display decl-list)
+)
+
+(teste-ex4 decl-list)
