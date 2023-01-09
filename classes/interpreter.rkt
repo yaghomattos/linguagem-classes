@@ -66,3 +66,10 @@
       )
   )        
 )
+
+(struct object (class-name fields)) ;estrutura para representar um Objeto
+
+    ;definir new
+    ;        self
+    ;        send
+    ;        super
