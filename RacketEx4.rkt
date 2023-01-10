@@ -4,19 +4,32 @@
 
 ;class teste extends object
 ;   field y
+;   field x
 ;
 ;   method initialize (v)
 ;      begin
 ;        set x = v
 ;      end
 ;
+;   method a(z)
+;      begin
+;         set y = -(x, z)
+;      end
+;
 ;   method gety() y
 
-; cria uma função identidade
-(define (decl-list) decl-list)
-
-; preenche a função identidade com uma ast manual da classe acima
-(set! decl-list (list (ast:decl (ast:var "teste") (ast:var "object") (list (ast:var "y")) (list (ast:method (ast:var "initialize") (list (ast:var "v")) (ast:begin (list (ast:assign (ast:var "x") (ast:var "v"))))) (ast:method (ast:var "gety") '() (ast:var "y"))))) )
+; cria uma lista de declarações com a classe descrita acima
+(define decl-list (list
+       (ast:decl (ast:var "teste")
+                 (ast:var "object")
+                 (list (ast:var "y") (ast:var "x"))
+                 (list
+                      (ast:method (ast:var "initialize") (list (ast:var "v")) (ast:begin (list (ast:assign (ast:var "x") (ast:var "v")))))
+                      (ast:method (ast:var "a") (list (ast:var "z")) (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))))
+                      (ast:method (ast:var "gety") '() (ast:var "y"))
+                 )
+       )
+)) 
 
 
 ; ################## Exercicio 4 ##################
