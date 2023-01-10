@@ -1,5 +1,10 @@
 #lang racket
 
+;Trabalho Prático 3 - Linguagens de Programação
+
+;Autores: Yagho Mattos da Rocha - Matrícula: 201765565AC 
+;         Thiago de Almeida Lopes - Matrícula: 201765556AC 
+
 (require dcc019/util/env
          dcc019/util/memory
          dcc019/classes/ast)
@@ -40,6 +45,12 @@
     [(ast:assign (ast:var x) e) (begin
                                   (setref! (apply-env Δ x) (value-of e Δ)) ;set the value in the store
                                   42)] ; return the 42 value
+    
+    ;[(ast:self) (apply-env Δ '%self)]
+    ;[(ast:send obj-exp method-name rands)]
+    ;[(ast:super name args)]
+    ;[(ast:new class-name args)]
+    
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
 
@@ -69,7 +80,7 @@
 
 (struct object (class-name fields)) ;estrutura para representar um Objeto
 
-    ;definir new
-    ;        self
-    ;        send
-    ;        super
+(define class-env '()) ;define o enviroment de classes como lista
+
+(define add-class! (lambda (class-name class) ;adciona classe ao enviroment de classes (lista de classes)
+    (display class) (set! class-env (cons (list class-name class) class-env))))
