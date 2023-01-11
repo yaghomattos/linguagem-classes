@@ -79,8 +79,6 @@
   )        
 )
 
-; ########## Thiago #########
-
 ; Cria as structs
 (struct object (classname fields))
 ;(struct method (vars body super-names field-names))
@@ -102,22 +100,16 @@
   ; Cria o objeto com os campos locais
   (define obj (create-object name fields))
   (define method-env (map (lambda item (create-method item)) methods))
-  (display method-env)
+  (display (car method-env))
 )
 
 ; todos os campos vem da assinatura do metodo e da classe
 (define (create-method method-data)
   (match (car method-data)
-    [(ast:method name params body) (name (method params body))]
+    ; metodo com parâmetro
+    [(ast:method (ast:var name) (list (ast:var params)) body) '(name (method params body))]
+    ; metodo sem parametros
+    [(ast:method (ast:var name) '() body) '(name (method params body))]
   )
   ;(method vars body super-names field-names)
 )
-
-; ########## Yagho #########
-
-(struct object (class-name fields)) ;estrutura para representar um Objeto
-
-(define class-env '()) ;define o enviroment de classes como lista
-
-(define add-class! (lambda (class-name class) ;adciona classe ao enviroment de classes (lista de classes)
-    (display class) (set! class-env (cons (list class-name class) class-env))))
