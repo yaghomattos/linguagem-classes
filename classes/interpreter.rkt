@@ -59,6 +59,7 @@
   ; you must collect all the classes declared and building its respectively environment
   (get-declarations (ast:prog-decls prog))
   ;(display (ast:prog-decls prog))
+  (display class-env)
   ; execute the prog expression in the correct environment
   (value-of (ast:prog-exp prog) init-env))
 
@@ -80,14 +81,21 @@
 )
 
 ; Cria as structs
-(struct object (classname fields))
+(struct objeto (classname fields))
 ;(struct method (vars body super-names field-names))
-(struct method (vars body))
+(struct metodo (vars body))
 (struct class (super-names method-env))
+
+; inicializa a lista de classes
+(define class-env '())
+
+(define (add-class-env new-class)
+   (append class-env (list new-class))
+)
 
 ; criar o objeto a partir do descritor da classe, recebe uma lista de campos da classe (teste e x,y)
 (define (create-object classname fields)
-  (object
+  (objeto
      classname
      ; cria uma lista de referências na mesma ordem dos campos (variaveis) da classe
     (map (lambda field-name (newref 0)) fields)
@@ -97,19 +105,54 @@
 ; Aqui cria a classe na linguagem
 ; ambiente de metodos a -> (method (z) (- x z) object (x y)), b -> ...
 (define (create-class name super fields methods)
+  ; lista de nomes dos campos da classe
+  (define fieldnames (map (lambda fd (ast:var-name (first fd))) fields))
   ; Cria o objeto com os campos locais
-  (define obj (create-object name fields))
-  (define method-env (map (lambda item (create-method item)) methods))
-  (display (car method-env))
+  (define obj (create-object name fieldnames))
+  ; Cria envs dos metodos
+  ;(display (map (lambda rf ))
+  ;(define method-env (map (lambda item (create-method item)) methods))
+  ;(add-class-env (class super method-env))
+  ; (display (car method-env))
 )
+
 
 ; todos os campos vem da assinatura do metodo e da classe
 (define (create-method method-data)
   (match (car method-data)
     ; metodo com parâmetro
-    [(ast:method (ast:var name) (list (ast:var params)) body) '(name (method params body))]
+    [(ast:method (ast:var name) (list (ast:var params)) body) (metodo params body)]
     ; metodo sem parametros
-    [(ast:method (ast:var name) '() body) '(name (method params body))]
+    [(ast:method (ast:var name) '() body) '(name (metodo params body))]
   )
   ;(method vars body super-names field-names)
 )
+
+
+; ################### Testes ####################
+
+(define funcao
+  (ast:method (ast:var "a") (list (ast:var "z")) (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))))
+)
+
+(define objfuncao
+   (metodo (list "z") (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))) )
+)
+
+(define objstruct
+  (objeto "teste" (list (newref 0) (newref 0) (newref 0))) ; Cria referencias de teste para x y z de teste
+)
+
+(define (apply-method m)
+  ; o env da classe
+  (define Δ2 (extend-env "y" 0 (extend-env "x" 0 empty-env)))
+
+  ; o env da função
+  (define Δ3 (extend-env "z" 3 Δ2))
+  
+  (display (value-of (metodo-body m) Δ3))
+  ;(display (metodo-vars m))
+)
+(apply-method objfuncao)
+
+
