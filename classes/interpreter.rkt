@@ -61,7 +61,12 @@
 
     ;[(ast:super name args)]
 
-     [(ast:new class-name args) (create-object class-name args)]
+     [(ast:new class-name args) (begin 
+        (define obj (create-object class-name args))
+        ; Chama o initialize da classe
+        (apply-method obj (ast:var "initialize") args)
+        obj
+     )]
    ; [(ast:new class-name args) (begin (display "ast:new ") (print (create-object class-name args)))]
     
     [e (raise-user-error "unimplemented-construction: " e)]
@@ -95,8 +100,8 @@
 
 ; Cria as structs
 (struct objeto (classname fields) #:transparent)
-(struct metodo (vars body) #:transparent)
-(struct classe (superclass fields) #:transparent)
+(struct metodo (method-name vars body) #:transparent)
+(struct classe (superclass fields method-env) #:transparent)
 
 ; inicializa a lista de classes
 (define class-env '())
@@ -114,11 +119,11 @@
       method-env))
   
   ; Cria uma lista do nome da classe + struct de classe e adiciona ao fim da lista de ambientes de classes
-  (set! class-env (append class-env (list (list (ast:var-name name) (classe super fieldnames)))))
+  (set! class-env (append class-env (list (list (ast:var-name name) (classe super fieldnames methods)))))
 
   ; debug
-  (display "create-class: ")
-  (print (car (car class-env)))
+  ;(display "create-class: ")
+  ;(print (car (car class-env)))
 )
 
 ; criar o objeto quando for executado um 'new' no código.
@@ -153,6 +158,20 @@
    )
 )
 
+; Busca um metodo no method-env da classe
+; Recebe a variavel do method-env e o nome do metodo a procurar.
+; Retorna o objeto do metodo encontrado
+(define (get-method method-env methodname)
+  ; Testa se o nome fornecido é o mesmo do elemento da cabeça da lista
+  ;(display "get-method: ")(display methodname) (print (ast:var-name (ast:method-name (car method-env))))
+   (if (equal? (ast:var-name (ast:method-name (car method-env))) methodname)
+      ; Se o nome for o mesmo, retorna o metodo
+      (car method-env)
+      ; Se o nome for diferente, chama a recursão na cauda do method-env
+      (get-method (cdr method-env) methodname)
+   )
+)
+
 ; todos os campos vem da assinatura do metodo e da classe
 ;(define (create-method method-data)
 ;  (match (car method-data)
@@ -167,7 +186,55 @@
 ; Avalia o resultado de um metodo
 ; Recebe por parâmetro o objeto da classe, o nome do metodo e os argumentos passados
 (define (apply-method object method args)
-  (display "apply-method: ") (display object) (display method) (print args)
+  ;(display "apply-method: ") (display object) (display method) (print args)
+  ; Procura a classe no env de classes
+  (define classitem (get-class class-env (ast:var-name (objeto-classname object))))
+  ; Extrai o method-env
+  (define method-env (classe-method-env classitem))
+  ; Procura o metodo no method-env
+  (define method-struct (get-method method-env (ast:var-name method)))
+  ; Extrai os campos da classe
+  (define class-fields (classe-fields classitem))
+  ; Extrai os locations dos campos da classe vindos do objeto
+  (define fields-locations (objeto-fields object))
+  ; Extrai a lista de argumentos
+  (define arguments (map (lambda m (ast:int-value (car m))) args))
+  ; Extrai a lista de parametros
+  (define params (map (lambda m (ast:var-name (car m))) (ast:method-params method-struct)))
+  ; Monta o env da classe
+  (define Δ2 (build-class-env class-fields fields-locations empty-env))
+  ; Monta o env da função com os campos e o env da classe
+  (define Δ3 (build-class-env params (map newref arguments) Δ2))
+
+  ;(display "class-fields: ") (print class-fields)
+  ;(display "fields-locations: ") (print fields-locations)
+  ;(display "method-env: ") (print method-struct)
+  ;(display "build-class-env: ") (print Δ2)
+  ;(display "build-method-env: ") (print Δ3)
+  ;(display "arguments: ") (print arguments)
+  ;(display "params: ") (print params)
+  ;(display "body: ") (print (ast:method-body method-struct))
+
+  (value-of (ast:method-body method-struct) Δ3)
+)
+
+(define (build-class-env class-fields fields-locations env)
+    (if (equal? class-fields null) 
+      ; then
+      env
+      ; else
+      ;(begin
+      ;(display "class-fields: ")
+      ;(display (car class-fields))
+      ;(display ", fields-locations: ")
+      ;(print (car fields-locations))
+      (build-class-env
+          (cdr class-fields) 
+          (cdr fields-locations)
+          (extend-env (car class-fields) (car fields-locations) env)
+      )
+      ;)
+    )
 )
 
 ; ################### Testes ####################
