@@ -11,6 +11,12 @@
 
 (provide value-of-program)
 
+; Cria um print pra debug
+(define (print value)
+  (display value)
+  (display "\n")
+)
+
 ; Representação de procedimentos para escopo estático
 
 ; proc-val :: Var x Expr x Env -> Proc
@@ -46,10 +52,17 @@
                                   (setref! (apply-env Δ x) (value-of e Δ)) ;set the value in the store
                                   42)] ; return the 42 value
     
+    ; ----------- Trabalho -------------
+    
     ;[(ast:self) (apply-env Δ '%self)]
-    ;[(ast:send obj-exp method-name rands)]
+
+    [(ast:send obj-exp method-name args) (apply-method (value-of obj-exp Δ) method-name args)]
+    ; [(ast:send obj-exp method-name args) (begin (display "send: ") (display obj-exp) (display " = ") (display (value-of obj-exp Δ)) (display method-name) (print args))]
+
     ;[(ast:super name args)]
-    ;[(ast:new class-name args)]
+
+     [(ast:new class-name args) (create-object class-name args)]
+   ; [(ast:new class-name args) (begin (display "ast:new ") (print (create-object class-name args)))]
     
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
@@ -59,6 +72,7 @@
   ; you must collect all the classes declared and building its respectively environment
   (get-declarations (ast:prog-decls prog))
   ;(display (ast:prog-decls prog))
+  ;(display class-env)
   ; execute the prog expression in the correct environment
   (value-of (ast:prog-exp prog) init-env))
 
@@ -79,45 +93,102 @@
   )        
 )
 
-; ########## Thiago #########
-
 ; Cria as structs
-(struct object (classname fields))
-;(struct method (vars body super-names field-names))
-(struct method (vars body))
-(struct class (super-names method-env))
+(struct objeto (classname fields) #:transparent)
+(struct metodo (vars body) #:transparent)
+(struct classe (superclass fields) #:transparent)
 
-; criar o objeto a partir do descritor da classe, recebe uma lista de campos da classe (teste e x,y)
-(define (create-object classname fields)
-  (object
+; inicializa a lista de classes
+(define class-env '())
+
+; Aqui cria uma struct de classe da linguagem e adiciona no class-env
+(define (create-class name super fields methods)
+  ; lista de nomes dos campos da classe
+  (define fieldnames (map (lambda fd (ast:var-name (first fd))) fields))
+
+  ; ambiente de metodos a -> (method (z) (- x z) object (x y)), b -> ...
+  
+  ; Cria uma lista do nome da classe + struct de classe e adiciona ao fim da lista de ambientes de classes
+  (set! class-env (append class-env (list (list (ast:var-name name) (classe super fieldnames)))))
+
+  ; debug
+  (display "create-class: ")
+  (print (car (car class-env)))
+)
+
+; criar o objeto quando for executado um 'new' no código.
+; Recebe o nome da classe e a lista de argumentos passados para o inicializador
+(define (create-object classname args)
+  ; Procura a classe no env de classes
+  (define classitem (get-class class-env (ast:var-name classname)))
+
+  ; debug
+ ; (display "class-env: ") (print class-env)
+ ; (display "new: ") (display classname) (display ", ") (print args)
+ ; (display "find-class: ") (print classitem)
+  
+  ; Cria o objeto
+  (objeto
      classname
      ; cria uma lista de referências na mesma ordem dos campos (variaveis) da classe
-    (map (lambda field-name (newref 0)) fields)
+    (map (lambda _ (newref 0)) (classe-fields classitem))
   )
 )
 
-; Aqui cria a classe na linguagem
-; ambiente de metodos a -> (method (z) (- x z) object (x y)), b -> ...
-(define (create-class name super fields methods)
-  ; Cria o objeto com os campos locais
-  (define obj (create-object name fields))
-  (define method-env (map (lambda item (create-method item)) methods))
-  (display method-env)
+; Busca uma classe na lista de classes (env da classe)
+; Recebe a variavel da lista de classes e o nome da classe a procurar.
+; Retorna o objeto da classe encontrada
+(define (get-class classenv classname)
+  ; Testa se o nome fornecido é o mesmo do elemento da cabeça da lista
+   (if (equal? (car (car classenv)) classname)
+      ; Se o nome for o mesmo, retorna a classe
+      (car (cdr (car classenv)))
+      ; Se o nome for diferente, chama a recursão na cauda do classenv
+      (get-class (cdr classenv) classname)
+   )
 )
 
 ; todos os campos vem da assinatura do metodo e da classe
-(define (create-method method-data)
-  (match (car method-data)
-    [(ast:method name params body) (name (method params body))]
-  )
-  ;(method vars body super-names field-names)
+;(define (create-method method-data)
+;  (match (car method-data)
+;    ; metodo com parâmetro
+;    [(ast:method (ast:var name) (list (ast:var params)) body) (metodo params body)]
+;    ; metodo sem parametros
+;    [(ast:method (ast:var name) '() body) '(name (metodo params body))]
+;  )
+;  ;(method vars body super-names field-names)
+;)
+
+; Avalia o resultado de um metodo
+; Recebe por parâmetro o objeto da classe, o nome do metodo e os argumentos passados
+(define (apply-method object method args)
+  (display "apply-method: ") (display object) (display method) (print args)
 )
 
-; ########## Yagho #########
+; ################### Testes ####################
 
-(struct object (class-name fields)) ;estrutura para representar um Objeto
+;(define funcao
+;  (ast:method (ast:var "a") (list (ast:var "z")) (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))))
+;)
 
-(define class-env '()) ;define o enviroment de classes como lista
+;(define objfuncao
+;   (metodo (list "z") (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))) )
+;)
 
-(define add-class! (lambda (class-name class) ;adciona classe ao enviroment de classes (lista de classes)
-    (display class) (set! class-env (cons (list class-name class) class-env))))
+;(define objstruct
+;  (objeto "teste" (list (newref 0) (newref 0) (newref 0))) ; Cria referencias de teste para x y z de teste
+;)
+
+;(define (apply-method m)
+  ; o env da classe
+ ; (define Δ2 (extend-env "y" 0 (extend-env "x" 0 empty-env)))
+
+  ; o env da função
+ ; (define Δ3 (extend-env "z" 3 Δ2))
+  
+ ; (display (value-of (metodo-body m) Δ3))
+  ;(display (metodo-vars m))
+;)
+;(apply-method objfuncao)
+
+

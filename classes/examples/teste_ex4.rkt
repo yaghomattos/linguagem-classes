@@ -16,8 +16,8 @@ class teste extends object
 
    method gety() y
 
-let o1 = new teste(3)
+let ca = new teste(35)
    in begin
-     send ol a(5);
-     send ol gety()
+     send ca a(5);
+     send ca gety()
    end
