@@ -54,7 +54,7 @@
     
     ; ----------- Trabalho -------------
     
-    ;[(ast:self) (apply-env Δ '%self)]
+    [(ast:self) (apply-env Δ '%self)]
 
     [(ast:send obj-exp method-name args) (apply-method (value-of obj-exp Δ) method-name args)]
     ; [(ast:send obj-exp method-name args) (begin (display "send: ") (display obj-exp) (display " = ") (display (value-of obj-exp Δ)) (display method-name) (print args))]
@@ -107,6 +107,11 @@
   (define fieldnames (map (lambda fd (ast:var-name (first fd))) fields))
 
   ; ambiente de metodos a -> (method (z) (- x z) object (x y)), b -> ...
+  (define method-env 
+    (lambda (methods objeto)
+      (map (lambda (methods)
+        (methods metodo-body metodo-vars objeto-classname objeto-fields)))
+      method-env))
   
   ; Cria uma lista do nome da classe + struct de classe e adiciona ao fim da lista de ambientes de classes
   (set! class-env (append class-env (list (list (ast:var-name name) (classe super fieldnames)))))
