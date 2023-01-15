@@ -54,12 +54,20 @@
     
     ; ----------- Trabalho -------------
     
-    [(ast:self) (apply-env Δ '%self)]
+    ;self retorna o objeto no qual o método corrente está operando.
+    [(ast:self) (apply-env Δ '%self)] 
 
     [(ast:send obj-exp method-name args) (apply-method (value-of obj-exp Δ) method-name args)]
     ; [(ast:send obj-exp method-name args) (begin (display "send: ") (display obj-exp) (display " = ") (display (value-of obj-exp Δ)) (display method-name) (print args))]
 
-    ;[(ast:super name args)]
+    ;expressão super tem o efeito de executar um método da hierarquia de classe
+    ;do objeto corrente, buscando o método em questão a partir da superclasse do objeto.
+    [(ast:super name args) 
+      (begin 
+        (define args (null))
+        (define obj (ast:self))
+        (apply-method obj))]
+    ;definir oque é o args, utilizar o self no objeto e rodar o método
 
      [(ast:new class-name args) (begin 
         (define obj (create-object class-name args))
@@ -198,7 +206,15 @@
   ; Extrai os locations dos campos da classe vindos do objeto
   (define fields-locations (objeto-fields object))
   ; Extrai a lista de argumentos
-  (define arguments (map (lambda m (ast:int-value (car m))) args))
+  ;(define arguments (map (lambda m (ast:int-value (car m))) args))
+  (define arguments (map (lambda m
+    (if (integer? (ast:int-value (car m)))
+      ;then
+      (ast:int-value (car m))
+      ;else
+      (display "outra coisa")
+    )) args)
+  )
   ; Extrai a lista de parametros
   (define params (map (lambda m (ast:var-name (car m))) (ast:method-params method-struct)))
   ; Monta o env da classe
