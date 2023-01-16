@@ -6,7 +6,7 @@ class oddeven extends object
     if zero?(n) then 1 else send self odd(-(n,1))
   method odd(n)
     if zero?(n) then 0 else send self even(-(n,1))
-let o1 = new oddeven()
-in send o1 odd(13)
+let on = new oddeven()
+in send on odd(13)
 
 % Result: 1
