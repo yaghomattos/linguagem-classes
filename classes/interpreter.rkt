@@ -54,16 +54,27 @@
     
     ; ----------- Trabalho -------------
     
-    ;[(ast:self) (apply-env Δ '%self)]
+    ;self retorna o objeto no qual o método corrente está operando.
+    [(ast:self) (apply-env Δ '%self)] 
 
     [(ast:send obj-exp method-name args) (apply-method (value-of obj-exp Δ) method-name args)]
-    ; [(ast:send obj-exp method-name args) (begin (display "send: ") (display obj-exp) (display " = ") (display (value-of obj-exp Δ)) (display method-name) (print args))]
 
-    ;[(ast:super name args)]
+    ;expressão super tem o efeito de executar um método da hierarquia de classe
+    ;do objeto corrente, buscando o método em questão a partir da superclasse do objeto.
+    [(ast:super name args) 
+      (begin 
+        (define args (null))
+        (define obj (ast:self))
+        (apply-method obj args))]
+    ;definir oque é o args, utilizar o self no objeto e rodar o método
 
-     [(ast:new class-name args) (create-object class-name args)]
-   ; [(ast:new class-name args) (begin (display "ast:new ") (print (create-object class-name args)))]
-    
+     [(ast:new class-name args) (begin 
+        (define obj (create-object class-name args))
+        ; Chama o initialize da classe
+        (apply-method obj (ast:var "initialize") args)
+        obj
+     )]
+
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
 
@@ -71,8 +82,6 @@
   (empty-store)
   ; you must collect all the classes declared and building its respectively environment
   (get-declarations (ast:prog-decls prog))
-  ;(display (ast:prog-decls prog))
-  ;(display class-env)
   ; execute the prog expression in the correct environment
   (value-of (ast:prog-exp prog) init-env))
 
@@ -95,8 +104,8 @@
 
 ; Cria as structs
 (struct objeto (classname fields) #:transparent)
-(struct metodo (vars body) #:transparent)
-(struct classe (superclass fields) #:transparent)
+(struct metodo (method-name vars body) #:transparent)
+(struct classe (superclass fields method-env) #:transparent)
 
 ; inicializa a lista de classes
 (define class-env '())
@@ -105,15 +114,8 @@
 (define (create-class name super fields methods)
   ; lista de nomes dos campos da classe
   (define fieldnames (map (lambda fd (ast:var-name (first fd))) fields))
-
-  ; ambiente de metodos a -> (method (z) (- x z) object (x y)), b -> ...
-  
   ; Cria uma lista do nome da classe + struct de classe e adiciona ao fim da lista de ambientes de classes
-  (set! class-env (append class-env (list (list (ast:var-name name) (classe super fieldnames)))))
-
-  ; debug
-  (display "create-class: ")
-  (print (car (car class-env)))
+  (set! class-env (append class-env (list (list (ast:var-name name) (classe super fieldnames methods)))))
 )
 
 ; criar o objeto quando for executado um 'new' no código.
@@ -121,12 +123,6 @@
 (define (create-object classname args)
   ; Procura a classe no env de classes
   (define classitem (get-class class-env (ast:var-name classname)))
-
-  ; debug
- ; (display "class-env: ") (print class-env)
- ; (display "new: ") (display classname) (display ", ") (print args)
- ; (display "find-class: ") (print classitem)
-  
   ; Cria o objeto
   (objeto
      classname
@@ -148,47 +144,59 @@
    )
 )
 
-; todos os campos vem da assinatura do metodo e da classe
-;(define (create-method method-data)
-;  (match (car method-data)
-;    ; metodo com parâmetro
-;    [(ast:method (ast:var name) (list (ast:var params)) body) (metodo params body)]
-;    ; metodo sem parametros
-;    [(ast:method (ast:var name) '() body) '(name (metodo params body))]
-;  )
-;  ;(method vars body super-names field-names)
-;)
+; Busca um metodo no method-env da classe
+; Recebe a variavel do method-env e o nome do metodo a procurar.
+; Retorna o objeto do metodo encontrado
+(define (get-method method-env methodname)
+  ; Testa se o nome fornecido é o mesmo do elemento da cabeça da lista
+   (if (equal? (ast:var-name (ast:method-name (car method-env))) methodname)
+      ; Se o nome for o mesmo, retorna o metodo
+      (car method-env)
+      ; Se o nome for diferente, chama a recursão na cauda do method-env
+      (get-method (cdr method-env) methodname)
+   )
+)
 
 ; Avalia o resultado de um metodo
 ; Recebe por parâmetro o objeto da classe, o nome do metodo e os argumentos passados
 (define (apply-method object method args)
-  (display "apply-method: ") (display object) (display method) (print args)
+  ; Procura a classe no env de classes
+  (define classitem (get-class class-env (ast:var-name (objeto-classname object))))
+  ; Extrai o method-env
+  (define method-env (classe-method-env classitem))
+  ; Procura o metodo no method-env
+  (define method-struct (get-method method-env (ast:var-name method)))
+  ; Extrai os campos da classe
+  (define class-fields (classe-fields classitem))
+  ; Extrai os locations dos campos da classe vindos do objeto
+  (define fields-locations (objeto-fields object))
+  ; Extrai a lista de argumentos
+  (define arguments (map (lambda m 
+    (match (car m)
+      [(ast:int value) value]
+      [(ast:new class args) args]
+      [e (begin (display "Outra coisa ") (print e))]
+    )
+  ) args))
+  ; Extrai a lista de parametros
+  (define params (map (lambda m (ast:var-name (car m))) (ast:method-params method-struct)))
+  ; Monta o env da classe
+  (define Δ2 (build-class-env class-fields fields-locations empty-env))
+  ; Monta o env da função com os campos e o env da classe
+  (define Δ3 (build-class-env params (map newref arguments) Δ2))
+  ; Obtem o valor da expressão do corpo do metodo, no env
+  (value-of (ast:method-body method-struct) Δ3)
 )
 
-; ################### Testes ####################
-
-;(define funcao
-;  (ast:method (ast:var "a") (list (ast:var "z")) (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))))
-;)
-
-;(define objfuncao
-;   (metodo (list "z") (ast:begin (list (ast:assign (ast:var "y") (ast:dif (ast:var "x") (ast:var "z"))))) )
-;)
-
-;(define objstruct
-;  (objeto "teste" (list (newref 0) (newref 0) (newref 0))) ; Cria referencias de teste para x y z de teste
-;)
-
-;(define (apply-method m)
-  ; o env da classe
- ; (define Δ2 (extend-env "y" 0 (extend-env "x" 0 empty-env)))
-
-  ; o env da função
- ; (define Δ3 (extend-env "z" 3 Δ2))
-  
- ; (display (value-of (metodo-body m) Δ3))
-  ;(display (metodo-vars m))
-;)
-;(apply-method objfuncao)
-
-
+(define (build-class-env class-fields fields-locations env)
+    (if (equal? class-fields null) 
+      ; then
+      env
+      ; else
+      (build-class-env
+          (cdr class-fields) 
+          (cdr fields-locations)
+          (extend-env (car class-fields) (car fields-locations) env)
+      )
+    )
+)
