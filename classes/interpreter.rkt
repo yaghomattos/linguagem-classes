@@ -57,7 +57,7 @@
     ;self retorna o objeto no qual o método corrente está operando.
     [(ast:self) (apply-env Δ '%self)] 
 
-    [(ast:send obj-exp method-name args) (apply-method (value-of obj-exp Δ) method-name args)]
+    [(ast:send obj-exp method-name args) (apply-method (value-of obj-exp Δ) method-name args Δ)]
 
     ;expressão super tem o efeito de executar um método da hierarquia de classe
     ;do objeto corrente, buscando o método em questão a partir da superclasse do objeto.
@@ -65,13 +65,13 @@
       (begin 
         (define args (null))
         (define obj (ast:self))
-        (apply-method obj args))]
+        (apply-method obj args Δ))]
     ;definir oque é o args, utilizar o self no objeto e rodar o método
 
      [(ast:new class-name args) (begin 
         (define obj (create-object class-name args))
         ; Chama o initialize da classe
-        (apply-method obj (ast:var "initialize") args)
+        (apply-method obj (ast:var "initialize") args Δ)
         obj
      )]
 
@@ -148,36 +148,65 @@
 ; Recebe a variavel do method-env e o nome do metodo a procurar.
 ; Retorna o objeto do metodo encontrado
 (define (get-method method-env methodname)
-  ; Testa se o nome fornecido é o mesmo do elemento da cabeça da lista
-   (if (equal? (ast:var-name (ast:method-name (car method-env))) methodname)
-      ; Se o nome for o mesmo, retorna o metodo
-      (car method-env)
-      ; Se o nome for diferente, chama a recursão na cauda do method-env
-      (get-method (cdr method-env) methodname)
-   )
+  (if (equal? method-env null) 
+    null
+    ; Testa se o nome fornecido é o mesmo do elemento da cabeça da lista
+    (if (equal? (ast:var-name (ast:method-name (car method-env))) methodname)
+        ; Se o nome for o mesmo, retorna o metodo
+        (car method-env)
+        ; Se o nome for diferente, chama a recursão na cauda do method-env
+        (get-method (cdr method-env) methodname)
+    )
+  )
+)
+
+(define (merge-superclass classitem)
+  (define super-name (ast:var-name (classe-superclass classitem)))
+  ;(display "super: ")(println super-name)
+  (if (equal? super-name "object") 
+    ; não faz merge
+    classitem
+    ; faz o merge
+    (classe 
+      (classe-superclass classitem) 
+      (append (classe-fields classitem) (classe-fields (get-class class-env super-name)))
+      (append (classe-method-env classitem) (classe-method-env (get-class class-env super-name)))
+    )
+  )
 )
 
 ; Avalia o resultado de um metodo
 ; Recebe por parâmetro o objeto da classe, o nome do metodo e os argumentos passados
-(define (apply-method object method args)
+(define (apply-method object method args env)
+  ;(display object) (display ", ") (display method) (display ", ") (print args)
   ; Procura a classe no env de classes
   (define classitem (get-class class-env (ast:var-name (objeto-classname object))))
+  (set! classitem (merge-superclass classitem))
   ; Extrai o method-env
   (define method-env (classe-method-env classitem))
   ; Procura o metodo no method-env
   (define method-struct (get-method method-env (ast:var-name method)))
+
+  (if (equal? method-struct null) 
+    ; Se o metodo não for encontrado, não retorna nada
+    (println "metodo não encontrado")
+    ; Se encontrou o metodo, prossegue
+    (apply-method-aux object classitem method-struct method args env)
+  )
+)
+
+(define (apply-method-aux object classitem method-struct method args env)
   ; Extrai os campos da classe
   (define class-fields (classe-fields classitem))
   ; Extrai os locations dos campos da classe vindos do objeto
   (define fields-locations (objeto-fields object))
   ; Extrai a lista de argumentos
-  (define arguments (map (lambda m 
-    (match (car m)
-      [(ast:int value) value]
-      [(ast:new class args) args]
-      [e (begin (display "Outra coisa ") (print e))]
+  (define arguments 
+    (if (equal? args null) 
+      empty
+      (map (lambda m (value-of (car m) env)) args)
     )
-  ) args))
+  )
   ; Extrai a lista de parametros
   (define params (map (lambda m (ast:var-name (car m))) (ast:method-params method-struct)))
   ; Monta o env da classe
@@ -185,7 +214,9 @@
   ; Monta o env da função com os campos e o env da classe
   (define Δ3 (build-class-env params (map newref arguments) Δ2))
   ; Obtem o valor da expressão do corpo do metodo, no env
-  (value-of (ast:method-body method-struct) Δ3)
+  (define vof (value-of (ast:method-body method-struct) (extend-env '%self object Δ3)))
+  ;(display "value-of ") (display method) (display ": ") (println vof)
+  vof
 )
 
 (define (build-class-env class-fields fields-locations env)
